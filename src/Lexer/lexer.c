@@ -136,10 +136,43 @@ TOKEN Lexer_Operator(LEXFIL *fil, char First)
 // returns the next raw token
 TOKEN Lexer_Next(LEXFIL *fil)
 {
-        char Character = 0;
+        char Character = 0, Saved = 0;
         // Skip WhiteSpace
         while ((Character = Lexer_Get(fil)) != EOF && isspace(Character))
                 ;
+        if (Character == '/')
+        {
+                Saved = Lexer_Get(fil);
+
+                if (Saved == '/')
+                {
+                        while ((Character = Lexer_Get(fil)) != EOF && Character != '\n')
+                                ;
+                        return Lexer_Next(fil);
+                }
+                else if (Saved == '*')
+                {
+                        char Prev = 0;
+                        while ((Character = Lexer_Get(fil)) != EOF)
+                        {
+                                if (Prev == '*' && Character == '/')
+                                        break;
+                                Prev = Character;
+                        }
+                        if (Character == EOF)
+                        {
+                                return (TOKEN){0};
+                        }
+                        return Lexer_Next(fil);
+                }
+                else
+                {
+                        if (Saved != EOF)
+                                Lexer_Unget(fil, Saved);
+                        return Lexer_Operator(fil, '/');
+                }
+        }
+
         if (isdigit(Character))
                 return Lexer_Number(fil, Character);
         else if (isalpha(Character) || Character == '_' || isalnum(Character))

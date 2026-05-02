@@ -3,18 +3,21 @@
 #include <stdlib.h>
 #include <lexer/lexer.h>
 
-int main(void)
+int main(int argc, char **argv)
 {
-        LEXFIL LexFile     = Lexer_Open("test/0.c");
-        TOKEN *Tokens      = NULL;
-        Tokens = Lexer_LexFile(&LexFile);
-        for (TOKEN *Token = Tokens; Token; Token = Token->Next)
+        for (int i = 1; i < argc; ++i)
         {
-                printf(" [info] .class=%d; .identifier=%s; .number=%d; :%ld:%ld %ld\n",
-                        Token->Class, Token->Identifier, Token->Number, Token->Line, Token->Column, Token->LineOffset);
+                LEXFIL LexFile     = Lexer_Open(argv[i]);
+                TOKEN *Tokens      = NULL;
+                Tokens = Lexer_LexFile(&LexFile);
+                for (TOKEN *Token = Tokens; Token; Token = Token->Next)
+                {
+                        printf(" [info] .class=%d; .identifier=%s; .number=%d; :%ld:%ld %ld\n",
+                                Token->Class, Token->Identifier, Token->Number, Token->Line, Token->Column, Token->LineOffset);
+                }
+
+                Lexer_Destroy(Tokens);
+                Lexer_Close(LexFile);
         }
-        
-        Lexer_Destroy(Tokens);
-        Lexer_Close(LexFile);
 }
 
