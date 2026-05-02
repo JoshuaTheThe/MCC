@@ -31,6 +31,9 @@ void Lexer_Destroy(TOKEN *Tokens)
                 Last   = Tokens;
                 Tokens = Tokens->Next;
         }
+
+        if (Last)
+                free(Last);
 }
 
 TOKEN Lexer_Character(LEXFIL *fil, char First)
@@ -121,7 +124,7 @@ TOKEN Lexer_Operator(LEXFIL *fil, char First)
                 ['#'] = LEXER_TOKEN_PREPROC,
         };
         
-        Token.Class      = SingleClass[First];
+        Token.Class      = SingleClass[(size_t)First];
         Token.File       = fil;
         Token.Column     = fil->Column;
         Token.LineOffset = fil->LineOffset;
@@ -148,19 +151,42 @@ TOKEN Lexer_Next(LEXFIL *fil)
         return (TOKEN){0};
 }
 
+TOKEN *Lexer_FindTail(TOKEN *Tokens)
+{
+        static TOKEN *CachedTail = NULL;
+        if (CachedTail && CachedTail->Next == NULL)
+                return CachedTail;
+        while (Tokens->Next)
+                Tokens = Tokens->Next;
+        CachedTail = Tokens;
+        return Tokens;
+}
+
 // create next token for a file
 TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil)
 {
-        (void)Tokens;
-        (void)fil;
-        return NULL;
+        TOKEN *NewToken = calloc(1, sizeof(*NewToken));
+        TOKEN  Contents = Lexer_Next(fil);
+        TOKEN *Tail     = NULL;
+        if (!NewToken)
+                abort();
+        *NewToken = Contents;
+        if (*Tokens == NULL)
+        {
+                *Tokens = NewToken;
+                return NewToken;
+        }
+        Tail = Lexer_FindTail(*Tokens);
+        Tail->Next     = NewToken;
+        NewToken->Prev = Tail;
+        return NewToken;
 }
 
 // load the entire contents of a file then lex it.
 TOKEN *Lexer_LexFile(LEXFIL *fil)
 {
-        fseek(fil->fp, 0, SEEK_END);
-        size_t size = ftell(fil->fp);
-        fseek(fil->fp, 0, SEEK_SET);
-        return NULL;
+        TOKEN *Tokens = NULL;
+        while (Lexer_ConstructNext(&Tokens, fil)->Class != LEXER_TOKEN_EOF)
+                ;
+        return Tokens;
 }

@@ -6,7 +6,7 @@
 int main(void)
 {
         LEXFIL LexFile     = {0};
-        TOKEN  Tok         = {0};
+        TOKEN *Tokens      = NULL;
         LexFile.fp         = fopen("test/0.c", "rb");
         LexFile.Column     = 0;
         LexFile.Line       = 1;
@@ -16,12 +16,13 @@ int main(void)
                 abort();
         }
 
-        do
+        Tokens = Lexer_LexFile(&LexFile);
+        for (TOKEN *Token = Tokens; Token; Token = Token->Next)
         {
-                Tok = Lexer_Next(&LexFile);
-                printf(".class=%d; .identifier=%s; .number=%d; :%ld:%ld %ld\n",
-                        Tok.Class, Tok.Identifier, Tok.Number, Tok.Line, Tok.Column, Tok.LineOffset);
-        } while (Tok.Class != LEXER_TOKEN_EOF);
+                printf(" [info] .class=%d; .identifier=%s; .number=%d; :%ld:%ld %ld\n",
+                        Token->Class, Token->Identifier, Token->Number, Token->Line, Token->Column, Token->LineOffset);
+        }
+        Lexer_Destroy(Tokens);
         fclose(LexFile.fp);
 }
 
