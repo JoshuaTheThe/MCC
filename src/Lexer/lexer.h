@@ -118,6 +118,7 @@ typedef struct
         FILE   *fp;
         size_t  Line,Column,LineOffset;
         size_t  _Line,_Column,_LineOffset;
+        char    Identifier[IDENTIFIER_SIZE];
 } LEXFIL;
 
 typedef struct _TOKEN
@@ -135,6 +136,8 @@ typedef struct _TOKEN
 TOKEN *Lexer_LexFile(LEXFIL *fp);
 void   Lexer_Destroy(TOKEN *Tokens);
 TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil);
-TOKEN Lexer_Next(LEXFIL *fil);
+TOKEN  Lexer_Next(LEXFIL *fil);
+LEXFIL Lexer_Open(const char *path);
+void   Lexer_Close(LEXFIL fil);
 
 #endif

@@ -190,3 +190,24 @@ TOKEN *Lexer_LexFile(LEXFIL *fil)
                 ;
         return Tokens;
 }
+
+LEXFIL Lexer_Open(const char *Path)
+{
+        LEXFIL fil     = {0};
+        fil.fp         = fopen(Path, "r");
+        fil.Column     = 0;
+        fil.Line       = 1;
+        fil.LineOffset = 0;
+        strncpy(fil.Identifier, Path, IDENTIFIER_SIZE - 1); // ewww
+        if (!fil.fp)
+        {
+                abort();
+        }
+
+        return fil;
+}
+
+void Lexer_Close(LEXFIL fil)
+{
+        fclose(fil.fp);
+}
