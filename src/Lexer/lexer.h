@@ -43,7 +43,7 @@ typedef enum
         LEXER_TOKEN_GREATER,            // >
         LEXER_TOKEN_LESS,               // <
         LEXER_TOKEN_SET,                // =
-        LEXER_TOKEN_PREPROC,            // #
+        LEXER_TOKEN_PREPROC,            // # nop
 
         LEXER_TOKEN_DOUBLE_SYMBOL_START,
         LEXER_TOKEN_EQUAL=LEXER_TOKEN_DOUBLE_SYMBOL_START,                // ==
@@ -112,6 +112,14 @@ typedef enum
         LEXER_TOKEN_VOLATILE,
         LEXER_TOKEN_SAFE,         // block specifier
         LEXER_TOKEN_UNSAFE,       // block specifier
+        LEXER_TOKEN_INCLUDE,
+        LEXER_TOKEN_DEFINE,
+        LEXER_TOKEN_IFDEF,        // tell compiler to do some things conditionally
+        LEXER_TOKEN_IF,           // tell compiler to do some things conditionally
+        LEXER_TOKEN_ELSEIF,       // tell compiler to do some things conditionally
+        LEXER_TOKEN_ELSE,         // tell compiler to do some things conditionally
+        LEXER_TOKEN_ENDIF,
+        LEXER_TOKEN_PRAGMA,       // tell compiler to do smth differently
 } LEXCLAS;
 
 typedef struct
