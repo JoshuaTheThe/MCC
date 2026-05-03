@@ -110,7 +110,8 @@ typedef enum
         LEXER_TOKEN_DOUBLE,
         LEXER_TOKEN_DEFAULT,
         LEXER_TOKEN_VOLATILE,
-        LEXER_TOKEN_SAFE,       // type specifier
+        LEXER_TOKEN_SAFE,         // block specifier
+        LEXER_TOKEN_UNSAFE,       // block specifier
 } LEXCLAS;
 
 typedef struct
