@@ -112,14 +112,14 @@ typedef enum
         LEXER_TOKEN_VOLATILE,
         LEXER_TOKEN_SAFE,         // block specifier
         LEXER_TOKEN_UNSAFE,       // block specifier
-        LEXER_TOKEN_INCLUDE,
-        LEXER_TOKEN_DEFINE,
-        LEXER_TOKEN_IFDEF,        // tell compiler to do some things conditionally
-        LEXER_TOKEN_IF,           // tell compiler to do some things conditionally
-        LEXER_TOKEN_ELSEIF,       // tell compiler to do some things conditionally
-        LEXER_TOKEN_ELSE,         // tell compiler to do some things conditionally
-        LEXER_TOKEN_ENDIF,
-        LEXER_TOKEN_PRAGMA,       // tell compiler to do smth differently
+        LEXER_TOKEN_PRE_INCLUDE,
+        LEXER_TOKEN_PRE_DEFINE,
+        LEXER_TOKEN_PRE_IFDEF,        // tell compiler to do some things conditionally
+        LEXER_TOKEN_PRE_IF,           // tell compiler to do some things conditionally (only when after #)
+        LEXER_TOKEN_PRE_ELSEIF,       // tell compiler to do some things conditionally
+        LEXER_TOKEN_PRE_ELSE,         // tell compiler to do some things conditionally (only when after #)
+        LEXER_TOKEN_PRE_ENDIF,
+        LEXER_TOKEN_PRE_PRAGMA,       // tell compiler to do smth differently
 } LEXCLAS;
 
 typedef struct
