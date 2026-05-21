@@ -111,6 +111,9 @@ typedef enum
         LEXER_TOKEN_DOUBLE,
         LEXER_TOKEN_DEFAULT,
         LEXER_TOKEN_VOLATILE,
+        LEXER_TOKEN_OPTIONAL,
+        LEXER_TOKEN_SOME,
+        LEXER_TOKEN_UNWRAP,
         LEXER_TOKEN_SAFE,         // block specifier
         LEXER_TOKEN_UNSAFE,       // block specifier
         LEXER_TOKEN_PRE_INCLUDE,
