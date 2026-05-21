@@ -47,6 +47,7 @@ typedef enum
 
         LEXER_TOKEN_DOUBLE_SYMBOL_START,
         LEXER_TOKEN_EQUAL=LEXER_TOKEN_DOUBLE_SYMBOL_START,                // ==
+        LEXER_TOKEN_DECLARE_ASSIGN,     // :=
         LEXER_TOKEN_AND,                // &&
         LEXER_TOKEN_OR,                 // ||
         LEXER_TOKEN_XOR,                // ^^ (custom)
@@ -128,6 +129,9 @@ typedef struct
         size_t  Line,Column,LineOffset;
         size_t  _Line,_Column,_LineOffset;
         char    Identifier[IDENTIFIER_SIZE];
+        size_t *LineOffsets;
+        size_t  LineCapacity;
+        size_t  LineCount;
 } LEXFIL;
 
 typedef struct _TOKEN
@@ -148,5 +152,6 @@ TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil);
 TOKEN  Lexer_Next(LEXFIL *fil);
 LEXFIL Lexer_Open(const char *path);
 void   Lexer_Close(LEXFIL fil);
+void Lexer_IndexLines(LEXFIL *fil);
 
 #endif

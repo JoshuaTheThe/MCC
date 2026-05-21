@@ -20,6 +20,15 @@ void Lexer_Unget(LEXFIL *fil, char Character)
         ungetc(Character, fil->fp);
 }
 
+char Lexer_Peek(LEXFIL *fil, long off)
+{
+        size_t _off = ftell(fil->fp);
+        fseek(fil->fp, off, SEEK_CUR);
+        char Character  = fgetc(fil->fp);
+        fseek(fil->fp, _off, SEEK_SET);
+        return Character;
+}
+
 // free the entire token tree
 void Lexer_Destroy(TOKEN *Tokens)
 {
@@ -63,9 +72,10 @@ TOKEN Lexer_Number(LEXFIL *fil, char First)
         Token.LineOffset = fil->LineOffset;
         Token.Line       = fil->Line;
         Token.Identifier[Token.Number++] = First;
-        while ((Character = Lexer_Get(fil)) != EOF && isdigit(Character))
+        while ((Character = Lexer_Get(fil)) != EOF && (isdigit(Character) || (Token.Class == LEXER_TOKEN_INTEGER_LITERAL && Character == '.')))
         {
                 Token.Identifier[Token.Number++] = Character;
+                if (Character == '.') Token.Class = LEXER_TOKEN_FLOAT_LITERAL;
         }
 
         Lexer_Unget(fil, Character);
@@ -94,6 +104,70 @@ TOKEN Lexer_Identifier(LEXFIL *fil, char First)
 TOKEN Lexer_Operator(LEXFIL *fil, char First)
 {
         TOKEN Token = {0};
+        static const char MultiClassText[][4] =
+        {
+                "==",
+                ":=",
+                "&&",
+                "||",
+                "^^",
+                "+=",
+                "-=",
+                "*=",
+                "/=",
+                "&=",
+                "|=",
+                "^=",
+                "%=",
+                "!=",
+                "<=",
+                ">=",
+                "<<",
+                ">>",
+                "->",
+                "++",
+                "--",
+                "..",
+                "<<=",
+                ">>=",
+                "<<<",
+                ">>>",
+                "...",
+        };
+
+        static const LEXCLAS MultiClass[] = {
+                LEXER_TOKEN_EQUAL,              // ==
+                LEXER_TOKEN_DECLARE_ASSIGN,     // :=
+                LEXER_TOKEN_AND,                // &&
+                LEXER_TOKEN_OR,                 // ||
+                LEXER_TOKEN_XOR,                // ^^ (custom)
+                LEXER_TOKEN_ADDSET,             // +=
+                LEXER_TOKEN_SUBSET,             // -=
+                LEXER_TOKEN_MULSET,             // *=
+                LEXER_TOKEN_DIVSET,             // /=
+                LEXER_TOKEN_ANDSET,             // &=
+                LEXER_TOKEN_ORSET,              // |=
+                LEXER_TOKEN_XORSET,             // ^=
+                LEXER_TOKEN_MODSET,             // %=
+                LEXER_TOKEN_NOTEQ,              // !=
+                LEXER_TOKEN_LESSEQ,             // <=
+                LEXER_TOKEN_GREATEREQ,          // >=
+                LEXER_TOKEN_SHIFTLEFT,          // <<
+                LEXER_TOKEN_SHIFTRIGHT,         // >>
+                LEXER_TOKEN_ARROW,              // ->
+                LEXER_TOKEN_INC,                // ++
+                LEXER_TOKEN_DEC,                // --
+                LEXER_TOKEN_RANGE,              // ..
+                LEXER_TOKEN_COMMENT,            // //
+                LEXER_TOKEN_LMULTICOMMENT,      // /*
+                LEXER_TOKEN_RMULTICOMMENT,      // */
+                LEXER_TOKEN_SHIFTLEFTSET,       // <<=
+                LEXER_TOKEN_SHIFTRIGHTSET,      // >>=
+                LEXER_TOKEN_ROLLLEFT,           // <<<
+                LEXER_TOKEN_ROLLRIGHT,          // >>>
+                LEXER_TOKEN_VARIADIC,           // ...
+        };
+
         // TODO - check for triple and double symbol before single
         static const LEXCLAS SingleClass[256] =
         {
@@ -123,13 +197,45 @@ TOKEN Lexer_Operator(LEXFIL *fil, char First)
                 ['='] = LEXER_TOKEN_SET,
                 ['#'] = LEXER_TOKEN_PREPROC,
         };
-        
-        Token.Class      = SingleClass[(size_t)First];
-        Token.File       = fil;
-        Token.Column     = fil->Column;
+
+        char Peek[4] = {First,0,0,0};
+        size_t Len = 1;
+        Peek[1] = Lexer_Peek(fil, 0);
+        Peek[2] = Lexer_Peek(fil, 1);
+        for (size_t i = 0; i < sizeof(MultiClassText)/4; i++)
+        {
+                if (strlen(MultiClassText[i]) == 3 && 
+                        memcmp(Peek, MultiClassText[i], 3) == 0)
+                {
+                        Token.Class = MultiClass[i];
+                        Len = 3;
+                        goto found;
+                }
+        }
+    
+        for (size_t i = 0; i < sizeof(MultiClassText)/4; i++)
+        {
+                if (strlen(MultiClassText[i]) == 2 && 
+                        memcmp(Peek, MultiClassText[i], 2) == 0)
+                {
+                        Token.Class = MultiClass[i];
+                        Len = 2;
+                        goto found;
+                }
+        }
+
+        Token.Class = SingleClass[(unsigned char)First];
+        Len = 1;
+found:  Token.File = fil;
+        Token.Column = fil->Column;
         Token.LineOffset = fil->LineOffset;
-        Token.Line       = fil->Line;
-        Token.Identifier[Token.Number++] = First;
+        Token.Line = fil->Line;
+        for (size_t i = 1; i < Len; i++)
+        {
+                Lexer_Get(fil);
+                Token.Identifier[Token.Number++] = Peek[i];
+        }
+
         return Token;
 }
 
@@ -187,11 +293,13 @@ TOKEN Lexer_Next(LEXFIL *fil)
 TOKEN *Lexer_FindTail(TOKEN *Tokens)
 {
         static TOKEN *CachedTail = NULL;
-        if (CachedTail && CachedTail->Next == NULL)
+        static TOKEN *CachedBase = NULL;
+        if (CachedTail && CachedTail->Next == NULL && CachedBase == Tokens)
                 return CachedTail;
         while (Tokens->Next)
                 Tokens = Tokens->Next;
         CachedTail = Tokens;
+        CachedBase = Tokens;
         return Tokens;
 }
 
@@ -219,9 +327,39 @@ TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil)
 TOKEN *Lexer_LexFile(LEXFIL *fil)
 {
         TOKEN *Tokens = NULL;
-        while (Lexer_ConstructNext(&Tokens, fil)->Class != LEXER_TOKEN_EOF)
+        TOKEN *Last   = NULL;
+        while ((Last = Lexer_ConstructNext(&Tokens, fil))->Class != LEXER_TOKEN_EOF)
                 ;
+        Lexer_IndexLines(fil);
         return Tokens;
+}
+
+// this routine is slow and bad and stinky but oh well we only do it once per file
+void Lexer_IndexLines(LEXFIL *fil)
+{
+        if (fil->LineOffsets) abort();
+        fseek(fil->fp, 0, SEEK_SET);
+        fil->LineOffsets = malloc(sizeof(long) * 1024);
+        fil->LineCapacity = 1024;
+        fil->LineCount = 1;
+        fil->LineOffsets[0] = 0;
+        int c;
+        long pos = 0;
+        while ((c = fgetc(fil->fp)) != EOF)
+        {
+                pos++;
+                if (c == '\n')
+                {
+                        if (fil->LineCount >= fil->LineCapacity)
+                        {
+                                fil->LineCapacity *= 2;
+                                fil->LineOffsets = realloc(fil->LineOffsets,
+                                                           sizeof(long) * fil->LineCapacity);
+                        }
+                        
+                        fil->LineOffsets[fil->LineCount++] = pos;
+                }
+        }
 }
 
 LEXFIL Lexer_Open(const char *Path)
@@ -242,5 +380,6 @@ LEXFIL Lexer_Open(const char *Path)
 
 void Lexer_Close(LEXFIL fil)
 {
+        free(fil.LineOffsets);
         fclose(fil.fp);
 }

@@ -13,7 +13,7 @@ int main(int argc, char **argv)
                 Tokens = Lexer_LexFile(&LexFile);
                 for (TOKEN *Token = Tokens; Token; Token = Token->Next)
                 {
-                        printf(" [info] .class=%d; .identifier=%s; .number=%d; :%ld:%ld %ld\n",
+                        printf(" [info] .class='%d'; .identifier='%s'; .number='%d'; :%ld:%ld %ld\n",
                                 Token->Class, Token->Identifier, Token->Number, Token->Line, Token->Column, Token->LineOffset);
                 }
 
