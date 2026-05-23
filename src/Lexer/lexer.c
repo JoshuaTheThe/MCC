@@ -310,7 +310,10 @@ TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil)
         TOKEN  Contents = Lexer_Next(fil);
         TOKEN *Tail     = NULL;
         if (!NewToken)
+        {
+                printf("Could not create Token\n");
                 abort();
+        }
         *NewToken = Contents;
         if (*Tokens == NULL)
         {
@@ -337,7 +340,12 @@ TOKEN *Lexer_LexFile(LEXFIL *fil)
 // this routine is slow and bad and stinky but oh well we only do it once per file
 void Lexer_IndexLines(LEXFIL *fil)
 {
-        if (fil->LineOffsets) abort();
+        if (fil->LineOffsets)
+        {
+                printf("File already indexed\n");
+                abort();
+        }
+        
         fseek(fil->fp, 0, SEEK_SET);
         fil->LineOffsets = malloc(sizeof(long) * 1024);
         fil->LineCapacity = 1024;
@@ -372,6 +380,7 @@ LEXFIL Lexer_Open(const char *Path)
         strncpy(fil.Identifier, Path, IDENTIFIER_SIZE - 1); // ewww
         if (!fil.fp)
         {
+                printf("Could not open file %s\n", Path);
                 abort();
         }
 
