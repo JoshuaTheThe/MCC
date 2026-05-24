@@ -11,7 +11,10 @@ void PreProcess_Tokens(TOKEN **Tokens)
                         if (Token == *Tokens)
                                 *Tokens = Token->Next;
                         Lexer_RemoveToken(Token);
-                        free(Token);
+                        TOKEN *Prev = Token;
+                        Token = Token->Next;
+                        free(Prev);
+                        continue;
                 }
                 
                 Token = Token->Next;
