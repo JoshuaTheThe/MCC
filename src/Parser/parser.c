@@ -537,10 +537,11 @@ PARSAST *Parser_ConstructAST(TOKEN *Tokens, LEXFIL *File)
 {
         if (!Tokens || !File)
                 Parser_Error(File, *Tokens, "Provided corrupted state %p:%p", Tokens, File);
-        PARSAST *Nodes = NULL;
+        PARSAST *Nodes = NULL, *Root = NULL;
         while (Tokens->Next)
         {
                 ASTAppend(&Nodes, Parser_ConstructStatement(&Tokens, File));
+                if (!Root) Root = Nodes;
         }
 
         return Nodes;
