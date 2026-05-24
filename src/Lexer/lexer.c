@@ -254,6 +254,7 @@ TOKEN Lexer_Operator(LEXFIL *fil, char First)
                 ['<'] = LEXER_TOKEN_LESS,
                 ['='] = LEXER_TOKEN_SET,
                 ['#'] = LEXER_TOKEN_PREPROC,
+                ['\\'] = LEXER_TOKEN_CNT,
         };
 
         char Peek[4] = {First,0,0,0};
@@ -303,7 +304,7 @@ TOKEN Lexer_Next(LEXFIL *fil)
         char Character = 0, Saved = 0;
         // Skip WhiteSpace
         while ((Character = Lexer_Get(fil)) != EOF && isspace(Character))
-                ;
+                if (Character == '\n') return (TOKEN){.Class = LEXER_TOKEN_EOL, .File = fil, .Column = fil->Column, .LineOffset = fil->LineOffset, .Line = fil->Line};
         if (Character == '/')
         {
                 Saved = Lexer_Get(fil);

@@ -13,6 +13,8 @@
 typedef enum
 {
         LEXER_TOKEN_EOF,
+        LEXER_TOKEN_EOL, // used by preprocessor
+        LEXER_TOKEN_CNT, // \, use by preprocessor
         LEXER_TOKEN_IDENTIFIER,
         LEXER_TOKEN_INTEGER_LITERAL,
         LEXER_TOKEN_FLOAT_LITERAL,
