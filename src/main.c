@@ -33,5 +33,21 @@ int main(int argc, char **argv)
                         Lexer_Close(LexFile);
                         i += 1;
                 }
+                else if (!strncmp(argv[i], "--parse", 16) && i < argc - 1)
+                {
+                        LEXFIL LexFile     = Lexer_Open(argv[i+1]);
+                        TOKEN *Tokens      = NULL;
+                        Tokens = Lexer_LexFile(&LexFile);
+                        PARSAST *AST       = Parser_ConstructAST(Tokens, &LexFile);
+                        // preproc would go here
+                        for (PARSAST *A = AST; A; A = A->Prev) // lol iterate backwards
+                        {
+                                printf(" [info] AST Object %p\n", A);
+                        }
+        
+                        Parser_DestroyAST(AST);
+                        Lexer_Destroy(Tokens);
+                        Lexer_Close(LexFile);
+                }
         }
 }

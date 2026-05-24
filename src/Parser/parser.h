@@ -6,120 +6,59 @@
 #include <stdbool.h>
 #include <Lexer/lexer.h>
 
+typedef enum
+{
+        PARSER_BINARY_EXPRESSION,
+        PARSER_UNARY_EXPRESSION,
+        PARSER_POSTUNARY_EXPRESSION,
+        PARSER_TERNARY_EXPRESSION,
+        PARSER_BLOCK_STATEMENT,
+        PARSER_CALL,
+
+        PARSER_LIT_INTEGER,
+        PARSER_LIT_FLOAT,
+        PARSER_LIT_STRING,
+        PARSER_LIT_CHAR,
+        PARSER_LIT_ARRAY,       // {a,b,c,d,...} as expr
+        PARSER_SYMBOL,
+
+        PARSER_TYPE,            // e.g. int
+        PARSER_TYPECAST,        // e.g. (int)expr
+
+        PARSER_STRUCT,
+        PARSER_UNION,
+        PARSER_ENUM,
+        PARSER_EXTERNAL,        // e.g. extern void _start;
+
+        PARSER_DECLARATION,     // e.g. int main;
+        PARSER_FUNCTION,        // e.g. main() {}
+        PARSER_INDEXED_ACCESS,  // e.g. a[b]
+        PARSER_NAMED_ACCESS,    // e.g. a.b
+        
+        PARSER_IF,
+        PARSER_WHILE,
+        PARSER_FOR,
+        PARSER_SWITCH,
+        PARSER_CASE,
+        PARSER_GOTO,
+        PARSER_LABEL,
+        PARSER_BREAK,
+        PARSER_CONTINUE,
+        PARSER_RETURN,
+} ASTCLAS;
+
 typedef struct _PARSAST
 {
         TOKEN            Token;
         struct _PARSAST *Next;
         struct _PARSAST *Prev;
         struct _PARSAST *Parent;
-        union
-        {
-                struct
-                {
-                        struct _PARSAST *Expr;
-                } Return;
-                
-                struct
-                {
-                        struct _PARSAST *Label;
-                } GoTo;
-                
-                struct
-                {
-                        int RegisterIndex;
-                } RegisterRef;
-
-                struct
-                {
-                        // do then condition if present
-                        // simply modifies usage of say while
-                        struct _PARSAST *Expr;
-                } Do;
-
-                struct
-                {
-                        struct _PARSAST *ToMatch;
-                        struct _PARSAST *Cases;
-                } Switch;
-
-                struct
-                {
-                        struct _PARSAST *Params;
-                        struct _PARSAST *ReturnType;
-                        struct _PARSAST *Body;
-                        struct _PARSAST *Name; // nullable (IMM FUNCTION)
-                } Function;
-
-                struct
-                {
-                        struct _PARSAST *Cond;
-                        struct _PARSAST *Then;
-                        struct _PARSAST *Else;
-                } Ternary;
-
-                struct
-                {
-                        struct _PARSAST *Type;
-                        struct _PARSAST *Init;
-                } Declaration;
-
-                struct
-                {
-                        struct _PARSAST *Callee;
-                        struct _PARSAST *Arguments;
-                } Call;
-
-                struct
-                {
-                        struct _PARSAST *Base;
-                        struct _PARSAST *Index;
-                } Access;
-                
-                struct
-                {
-                        struct _PARSAST *Left;
-                        struct _PARSAST *Right;
-                } Binary;
-                
-                struct
-                {
-                        struct _PARSAST *Right;
-                } Prefix;
-                
-                struct
-                {
-                        struct _PARSAST *Left;
-                } Postfix;
-                
-                struct
-                {
-                        struct _PARSAST *Body;
-                        bool IsSafe;
-                } Block;
-
-                struct
-                {
-                        struct _PARSAST *Expr;
-                        struct _PARSAST *Then;
-                        struct _PARSAST *Else;
-                } If;
-                
-                struct
-                {
-                        // while is syntax sugar for
-                        // for(;cond;)
-                        // do {} for is what the AST actually does and is allowed (execute then check)
-                        struct _PARSAST *Init;
-                        struct _PARSAST *Cond;
-                        struct _PARSAST *Post;
-                        struct _PARSAST *Body;
-                } While_For;
-
-                struct
-                {
-                        struct _PARSAST *Args;
-                } Preprocessor;
-        } As;
+        struct _PARSAST *Children;
+        ASTCLAS          Class;
+        // removing as to increase generality
 } PARSAST;
+
+PARSAST *Parser_ConstructAST(TOKEN *const Tokens, LEXFIL *File);
+void     Parser_DestroyAST(PARSAST *);
 
 #endif

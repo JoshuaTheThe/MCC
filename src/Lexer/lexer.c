@@ -1,6 +1,53 @@
 
 #include <lexer/lexer.h>
 
+static const char Keywords[][16] =
+{
+	"if",
+	"else",
+	"while",
+	"do",
+	"return",
+	"unsigned",
+	"signed",
+	"static",
+	"const",
+	"auto",
+	"case",
+	"switch",
+	"break",
+	"continue",
+	"register",
+	"union",
+	"void",
+	"int",
+	"short",
+	"char",
+	"long",
+	"extern",
+	"enum",
+	"sizeof",
+	"struct",
+	"typedef",
+	"goto",
+	"float",
+	"double",
+	"default",
+	"volatile",
+	"optional",
+	"some",
+	"unwrap",
+	"safe",
+	"unsafe",
+	"include",
+	"define",
+	"ifdef",
+	"elseif",
+	"endif",
+	"pragma",
+	"for",
+};
+
 char Lexer_Get(LEXFIL *fil)
 {
         char Character   = fgetc(fil->fp);
@@ -98,6 +145,17 @@ TOKEN Lexer_Identifier(LEXFIL *fil, char First)
         }
 
         Lexer_Unget(fil, Character);
+        for (size_t i = 0; i < sizeof(Keywords) / sizeof(Keywords[0]); ++i)
+        {
+                if (!strncmp(Token.Identifier, Keywords[i], sizeof(Keywords[0])))
+                {
+                        Token.Class = LEXER_TOKEN_KEYWORD_START;
+                        break;
+                }
+        }
+
+        if (Token.Class == LEXER_TOKEN_KEYWORD_END) // for placeholder
+                Token.Class = LEXER_TOKEN_WHILE_FOR;
         return Token;
 }
 
@@ -286,7 +344,26 @@ TOKEN Lexer_Next(LEXFIL *fil)
         else if (Character == '\'' || Character == '"')
                 return Lexer_Character(fil, Character);
         else
-                return Lexer_Operator(fil, Character);
+        {
+                TOKEN Tok = Lexer_Operator(fil, Character);
+                if (Tok.Class == LEXER_TOKEN_COMMENT)
+                {
+                        while (Character != '\n')
+                                Character = Lexer_Get(fil);
+                        Lexer_Get(fil);
+                        return Lexer_Next(fil);
+                }
+                else if (Tok.Class == LEXER_TOKEN_LMULTICOMMENT)
+                {
+                        while (Tok.Class != LEXER_TOKEN_RMULTICOMMENT)
+                        {
+                                Tok = Lexer_Next(fil);
+                        }
+
+                        return Lexer_Next(fil);
+                }
+                return Tok;
+        }
         return (TOKEN){0};
 }
 

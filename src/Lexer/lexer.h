@@ -122,6 +122,7 @@ typedef enum
         LEXER_TOKEN_PRE_ELSEIF,       // tell compiler to do some things conditionally
         LEXER_TOKEN_PRE_ENDIF,
         LEXER_TOKEN_PRE_PRAGMA,       // tell compiler to do smth differently
+        LEXER_TOKEN_KEYWORD_END,
 } LEXCLAS;
 
 typedef struct
