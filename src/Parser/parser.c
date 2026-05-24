@@ -6,34 +6,34 @@ static PARSAST *Parser_ConstructExpressions(TOKEN **const Tokens, LEXFIL *File);
 
 void Parser_Error(LEXFIL *File, TOKEN ReferenceToken, const char *const fmt, ...)
 {
-        char ErrorBuffer[1024*2] = {0};
+        char ErrorBuffer[1024 * 2] = {0};
         char FormattedMessage[1024] = {0};
         va_list args;
         va_start(args, fmt);
         vsnprintf(FormattedMessage, sizeof(FormattedMessage), fmt, args);
         va_end(args);
         if (ReferenceToken.Class != LEXER_TOKEN_EOF)
-                snprintf(ErrorBuffer, sizeof(ErrorBuffer), "%s:%ld:%ld: error: %s\n", 
-                         File->Identifier, ReferenceToken.Line, ReferenceToken.Column, 
+                snprintf(ErrorBuffer, sizeof(ErrorBuffer), "%s:%ld:%ld: error: %s\n",
+                         File->Identifier, ReferenceToken.Line, ReferenceToken.Column,
                          FormattedMessage);
         else
                 snprintf(ErrorBuffer, sizeof(ErrorBuffer), "error: %s\n", FormattedMessage);
         printf("%s", ErrorBuffer);
-        if (ReferenceToken.Class != LEXER_TOKEN_EOF && 
-                ReferenceToken.Line < File->LineCount)
+        if (ReferenceToken.Class != LEXER_TOKEN_EOF &&
+            ReferenceToken.Line < File->LineCount)
         {
                 char Character = 0;
-                fseek(File->fp, File->LineOffsets[ReferenceToken.Line-1], SEEK_SET);
+                fseek(File->fp, File->LineOffsets[ReferenceToken.Line - 1], SEEK_SET);
                 while (Character != '\n' && Character != EOF)
                 {
                         if (Character != 0)
                                 printf("%c", Character);
                         Character = fgetc(File->fp);
                 }
-        
-                printf("\n%*s^\n", ReferenceToken.Column-1, "");
+
+                printf("\n%*s^\n", ReferenceToken.Column - 1, "");
         }
-    
+
         exit(1);
 }
 
@@ -48,7 +48,8 @@ static void ASTAppend(PARSAST **const A, PARSAST *const B)
 
 static TOKEN *Consume(TOKEN **const Token)
 {
-        if (!Token) return NULL;
+        if (!Token)
+                return NULL;
         TOKEN *const Tok = *Token;
         *Token = (*Token)->Next;
         return Tok;
@@ -66,7 +67,8 @@ static TOKEN *Expect(TOKEN **const Token, LEXCLAS Class, LEXFIL *File)
 
 static TOKEN *UnConsume(TOKEN **const Token)
 {
-        if (!Token) return NULL;
+        if (!Token)
+                return NULL;
         TOKEN *const Tok = *Token;
         *Token = (*Token)->Prev;
         return Tok;
@@ -107,7 +109,7 @@ static PARSAST *Parser_ConstructPrimary(TOKEN **const Tokens, LEXFIL *File)
                 Node->Token = *Consume(Tokens);
                 break;
         case LEXER_TOKEN_FLOAT_LITERAL:
-                Node = ASTCreateNode(PARSER_LIT_STRING, File);
+                Node = ASTCreateNode(PARSER_LIT_FLOAT, File);
                 Node->Token = *Consume(Tokens);
                 break;
         case LEXER_TOKEN_STRING_LITERAL:
@@ -121,94 +123,360 @@ static PARSAST *Parser_ConstructPrimary(TOKEN **const Tokens, LEXFIL *File)
         return Node;
 }
 
-// &&
-static PARSAST *Parser_ConstructAnd(TOKEN **const Tokens, LEXFIL *File)
+static PARSAST *Parser_ConstructUnary(TOKEN **const Tokens, LEXFIL *File)
 {
-        PARSAST *Nodes = NULL;
-        PARSAST *Left  = Parser_ConstructPrimary(Tokens, File);
-        TOKEN Token = **Tokens;
-        while ((*Tokens)->Class == LEXER_TOKEN_AND)
+        TOKEN *Tok = *Tokens;
+        switch (Tok->Class)
         {
-                Token = *Consume(Tokens);
-                ASTAppend(&Nodes, Parser_ConstructPrimary(Tokens, File));
-        }
+        case LEXER_TOKEN_ADD:     // +
+        case LEXER_TOKEN_SUB:     // -
+        case LEXER_TOKEN_BAND:    // &
+        case LEXER_TOKEN_MUL_PTR: // *
+        case LEXER_TOKEN_NOT:     // !
+        case LEXER_TOKEN_BNOT:    // ~
+        case LEXER_TOKEN_INC:     // ++
+        case LEXER_TOKEN_DEC:     // --
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Operand = Parser_ConstructUnary(Tokens, File);
 
-        if (!Nodes)
-                return Left;
-        PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
-        Expr->Token = Token;
-        ASTAppend(&Nodes, Left);
-        Expr->Children = Nodes;
-        return Expr;
+                PARSAST *Unary = ASTCreateNode(PARSER_UNARY_EXPRESSION, File);
+                Unary->Token = Op;
+                Unary->Children = Operand;
+                return Unary;
+        }
+        default:
+                return Parser_ConstructPrimary(Tokens, File);
+        }
 }
 
-// ||
-static PARSAST *Parser_ConstructOr(TOKEN **const Tokens, LEXFIL *File)
+static int IsOperatorAtLevel(TOKEN *Token, const LEXCLAS *Operators, int OpCount)
 {
-        PARSAST *Nodes = NULL;
-        PARSAST *Left  = Parser_ConstructAnd(Tokens, File);
-        TOKEN Token = **Tokens;
-        while ((*Tokens)->Class == LEXER_TOKEN_AND)
+        for (int i = 0; i < OpCount; i++)
         {
-                Token = *Consume(Tokens);
-                ASTAppend(&Nodes, Parser_ConstructAnd(Tokens, File));
+                if (Token->Class == Operators[i])
+                        return 1;
         }
-
-        if (!Nodes)
-                return Left;
-        PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
-        Expr->Token = Token;
-        ASTAppend(&Nodes, Left);
-        Expr->Children = Nodes;
-        return Expr;
+        return 0;
 }
 
-// a?b:c;
+static PARSAST *Parser_ConstructMultiplicative(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructUnary(Tokens, File);
+
+        static const LEXCLAS Operators[] = {
+            LEXER_TOKEN_MUL_PTR,
+            LEXER_TOKEN_DIV,
+            LEXER_TOKEN_MOD};
+
+        while ((*Tokens) && IsOperatorAtLevel(*Tokens, Operators, sizeof(Operators) / sizeof(Operators[0])))
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructUnary(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructAdditive(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructMultiplicative(Tokens, File);
+
+        static const LEXCLAS Operators[] = {
+            LEXER_TOKEN_ADD, // +
+            LEXER_TOKEN_SUB  // -
+        };
+
+        while ((*Tokens) && IsOperatorAtLevel(*Tokens, Operators, sizeof(Operators) / sizeof(Operators[0])))
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructMultiplicative(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructShift(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructAdditive(Tokens, File);
+
+        static const LEXCLAS Operators[] = {
+            LEXER_TOKEN_SHIFTLEFT,
+            LEXER_TOKEN_SHIFTRIGHT,
+            LEXER_TOKEN_ROLLLEFT,
+            LEXER_TOKEN_ROLLRIGHT,
+        };
+
+        while ((*Tokens) && IsOperatorAtLevel(*Tokens, Operators, sizeof(Operators) / sizeof(Operators[0])))
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructAdditive(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructRelational(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructShift(Tokens, File);
+
+        static const LEXCLAS Operators[] = {
+            LEXER_TOKEN_LESS,
+            LEXER_TOKEN_GREATER,
+            LEXER_TOKEN_LESSEQ,
+            LEXER_TOKEN_GREATEREQ};
+
+        while ((*Tokens) && IsOperatorAtLevel(*Tokens, Operators, sizeof(Operators) / sizeof(Operators[0])))
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructShift(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructEquality(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructRelational(Tokens, File);
+
+        static const LEXCLAS Operators[] = {
+            LEXER_TOKEN_EQUAL,
+            LEXER_TOKEN_NOTEQ};
+
+        while ((*Tokens) && IsOperatorAtLevel(*Tokens, Operators, sizeof(Operators) / sizeof(Operators[0])))
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructRelational(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructBitwiseAnd(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructEquality(Tokens, File);
+
+        while ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_BAND)
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructEquality(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructBitwiseXor(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructBitwiseAnd(Tokens, File);
+
+        while ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_BXOR)
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructBitwiseAnd(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructBitwiseOr(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructBitwiseXor(Tokens, File);
+
+        while ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_BOR)
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructBitwiseXor(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructLogicalAnd(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructBitwiseOr(Tokens, File);
+
+        while ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_AND)
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructBitwiseOr(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
+static PARSAST *Parser_ConstructLogicalOr(TOKEN **const Tokens, LEXFIL *File)
+{
+        PARSAST *Left = Parser_ConstructLogicalAnd(Tokens, File);
+
+        while ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_OR)
+        {
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructLogicalAnd(Tokens, File);
+
+                PARSAST *Expr = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                Expr->Token = Op;
+
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Expr->Children = Children;
+
+                Left = Expr;
+        }
+
+        return Left;
+}
+
 static PARSAST *Parser_ConstructTernary(TOKEN **const Tokens, LEXFIL *File)
 {
-        PARSAST *Nodes = NULL;
-        PARSAST *Expr  = Parser_ConstructOr(Tokens, File);
-        TOKEN Token = **Tokens;
-        if ((*Tokens)->Class == LEXER_TOKEN_TERNARY)
+        PARSAST *Expr = Parser_ConstructLogicalOr(Tokens, File);
+
+        if ((*Tokens) && (*Tokens)->Class == LEXER_TOKEN_TERNARY)
         {
-                Token = *Consume(Tokens);
-                ASTAppend(&Nodes, Parser_ConstructOr(Tokens, File));
+                TOKEN Token = *Consume(Tokens);
+                PARSAST *TrueBranch = Parser_ConstructExpressions(Tokens, File);
                 Expect(Tokens, LEXER_TOKEN_COLON, File);
-                ASTAppend(&Nodes, Parser_ConstructOr(Tokens, File));
+                PARSAST *FalseBranch = Parser_ConstructExpressions(Tokens, File);
+
+                PARSAST *Ternary = ASTCreateNode(PARSER_TERNARY_EXPRESSION, File);
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Expr);
+                ASTAppend(&Children, TrueBranch);
+                ASTAppend(&Children, FalseBranch);
+                Ternary->Children = Children;
+                Ternary->Token = Token;
+
+                return Ternary;
         }
 
-        if (!Nodes)
-                return Expr;
-        PARSAST *Ternary = ASTCreateNode(PARSER_TERNARY_EXPRESSION, File);
-        ASTAppend(&Nodes, Expr);
-        Ternary->Token = Token;
-        Ternary->Children = Nodes;
-        return Ternary;
+        return Expr;
 }
 
 static PARSAST *Parser_ConstructAssignment(TOKEN **const Tokens, LEXFIL *File)
 {
-        PARSAST *Nodes = NULL;
-        PARSAST *Left  = Parser_ConstructTernary(Tokens, File);
-        TOKEN Token = **Tokens;
-        while ((*Tokens)->Class == LEXER_TOKEN_SET) // others would follow, simplified for now
+        PARSAST *Left = Parser_ConstructTernary(Tokens, File);
+        static const LEXCLAS AssignOps[] = {
+            LEXER_TOKEN_SET,
+            LEXER_TOKEN_ADDSET,
+            LEXER_TOKEN_SUBSET,
+            LEXER_TOKEN_MULSET,
+            LEXER_TOKEN_DIVSET,
+            LEXER_TOKEN_MODSET,
+            LEXER_TOKEN_SHIFTLEFTSET,
+            LEXER_TOKEN_SHIFTRIGHTSET,
+            LEXER_TOKEN_DECLARE_ASSIGN,
+        };
+
+        if ((*Tokens) && IsOperatorAtLevel(*Tokens, AssignOps, sizeof(AssignOps) / sizeof(AssignOps[0])))
         {
-                Token = *Consume(Tokens);
-                ASTAppend(&Nodes, Parser_ConstructTernary(Tokens, File));
+                TOKEN Op = *Consume(Tokens);
+                PARSAST *Right = Parser_ConstructAssignment(Tokens, File); // Right-associative
+
+                PARSAST *Assignment = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
+                PARSAST *Children = NULL;
+                ASTAppend(&Children, Left);
+                ASTAppend(&Children, Right);
+                Assignment->Children = Children;
+                Assignment->Token = Op;
+
+                return Assignment;
         }
 
-        if (!Nodes)
-                return Left;
-        PARSAST *Assignment = ASTCreateNode(PARSER_BINARY_EXPRESSION, File);
-        ASTAppend(&Nodes, Left);
-        Assignment->Children = Nodes;
-        Assignment->Token = Token;
-        return Assignment;
+        return Left;
 }
 
 static PARSAST *Parser_ConstructExpressions(TOKEN **const Tokens, LEXFIL *File)
 {
-        // not a special expr, just a list of them
         PARSAST *Nodes = NULL;
         ASTAppend(&Nodes, Parser_ConstructAssignment(Tokens, File));
         while ((*Tokens)->Class == LEXER_TOKEN_COMMA)
@@ -245,7 +513,7 @@ static PARSAST *Parser_ConstructStatement(TOKEN **const Tokens, LEXFIL *File)
         case LEXER_TOKEN_ENUM:
         case LEXER_TOKEN_UNION:
         case LEXER_TOKEN_CONST:
-//        case LEXER_TOKEN_TYPEDEF: // i think ill make typedef preproc to just struct,enum,union +T
+                //        case LEXER_TOKEN_TYPEDEF: // i think ill make typedef preproc to just struct,enum,union +T
                 // declaration of either
                 /*
                  * <T> x = (T)(..)
@@ -256,18 +524,19 @@ static PARSAST *Parser_ConstructStatement(TOKEN **const Tokens, LEXFIL *File)
                 Consume(Tokens);
                 break;
         default: // expression
-                {
-                        PARSAST *Node = Parser_ConstructDeclaration(Tokens, File);
-                        return Node;
-                }
-                break;
+        {
+                PARSAST *Node = Parser_ConstructDeclaration(Tokens, File);
+                return Node;
+        }
+        break;
         }
         return NULL;
 }
 
 PARSAST *Parser_ConstructAST(TOKEN *Tokens, LEXFIL *File)
 {
-        if (!Tokens || !File) Parser_Error(File, *Tokens, "Provided corrupted state %p:%p", Tokens, File);
+        if (!Tokens || !File)
+                Parser_Error(File, *Tokens, "Provided corrupted state %p:%p", Tokens, File);
         PARSAST *Nodes = NULL;
         while (Tokens->Next)
         {
@@ -279,9 +548,9 @@ PARSAST *Parser_ConstructAST(TOKEN *Tokens, LEXFIL *File)
 
 void Parser_DestroyAST(PARSAST *AST)
 {
-        if (!AST) return;
+        if (!AST)
+                return;
         Parser_DestroyAST(AST->Children);
         Parser_DestroyAST(AST->Prev);
         free(AST);
 }
-

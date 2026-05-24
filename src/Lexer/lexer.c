@@ -470,3 +470,11 @@ void Lexer_Close(LEXFIL fil)
         free(fil.LineOffsets);
         fclose(fil.fp);
 }
+
+void Lexer_RemoveToken(TOKEN *Token)
+{
+        if (Token->Prev)
+                Token->Prev->Next = Token->Next;
+        if (Token->Next)
+                Token->Next->Prev = Token->Prev;
+}

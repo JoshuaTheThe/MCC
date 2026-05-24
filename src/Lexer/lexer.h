@@ -157,5 +157,6 @@ TOKEN  Lexer_Next(LEXFIL *fil);
 LEXFIL Lexer_Open(const char *path);
 void   Lexer_Close(LEXFIL fil);
 void Lexer_IndexLines(LEXFIL *fil);
+void Lexer_RemoveToken(TOKEN *Token);
 
 #endif

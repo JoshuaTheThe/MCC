@@ -39,7 +39,7 @@ int main(int argc, char **argv)
                         LEXFIL LexFile     = Lexer_Open(argv[i+1]);
                         TOKEN *Tokens      = NULL;
                         Tokens = Lexer_LexFile(&LexFile);
-                        //PreProcess_Tokens(&Tokens);
+                        PreProcess_Tokens(&Tokens);
                         for (TOKEN *Token = Tokens; Token; Token = Token->Next)
                         {
                                 printf(" [info] .class='%d'; .identifier='%s'; .number='%d'; :%ld:%ld %ld\n",
@@ -55,8 +55,8 @@ int main(int argc, char **argv)
                         LEXFIL LexFile     = Lexer_Open(argv[i+1]);
                         TOKEN *Tokens      = NULL;
                         Tokens = Lexer_LexFile(&LexFile);
+                        PreProcess_Tokens(&Tokens);
                         PARSAST *AST       = Parser_ConstructAST(Tokens, &LexFile);
-                        // preproc would go here
                         for (PARSAST *A = AST; A; A = A->Prev) // lol iterate backwards
                         {
                                 printf(" [info] AST Object %p\n", A);
