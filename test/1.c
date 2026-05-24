@@ -1,2 +1,2 @@
 
-ident; 1;
+ident+1;

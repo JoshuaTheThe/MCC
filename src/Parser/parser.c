@@ -550,7 +550,13 @@ void Parser_DestroyAST(PARSAST *AST)
 {
         if (!AST)
                 return;
-        Parser_DestroyAST(AST->Children);
+        if (AST->Children)
+        {
+                PARSAST *End = AST->Children;
+                for (;End->Next;End=End->Next);
+                Parser_DestroyAST(End);
+        }
+        
         Parser_DestroyAST(AST->Prev);
         free(AST);
 }
