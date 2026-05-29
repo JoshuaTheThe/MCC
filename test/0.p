@@ -7,7 +7,7 @@ Program Main
                 // array of optional strings
                 Optional(Char[*])[c] v
         Begin
-                For i In 0..c
+                For i In (0)..c
                         // if none, exit
                         Std.Io.Write(Except(v[i]), Exit(1))
         End
