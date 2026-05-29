@@ -58,7 +58,10 @@ typedef struct _PARSAST
         // removing as to increase generality
 } PARSAST;
 
-PARSAST *Parser_ConstructAST(TOKEN *const Tokens, LEXFIL *File);
-void     Parser_DestroyAST(PARSAST *);
+PARSAST *Parser_AST_Construct(TOKEN *const Tokens, LEXFIL *File);
+void     Parser_AST_Destroy(PARSAST *);
+void     Parser_AST_Append(PARSAST **const A, PARSAST *const B);
+PARSAST *Parser_AST_Create(ASTCLAS Class, LEXFIL *File);
+PARSAST *Parser_C_ConstructStatement(TOKEN **const Tokens, LEXFIL *File);
 
 #endif

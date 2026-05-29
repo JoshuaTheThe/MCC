@@ -90,14 +90,14 @@ int main(int argc, char **argv)
                         TOKEN *Tokens      = NULL;
                         Tokens = Lexer_LexFile(&LexFile);
                         PreProcess_Tokens(&Tokens);
-                        PARSAST *AST       = Parser_ConstructAST(Tokens, &LexFile);
+                        PARSAST *AST       = Parser_AST_Construct(Tokens, &LexFile);
                         for (PARSAST *A = AST; A; A = A->Prev)
                         {
                                 printf(" [info] AST Object %p\n", A);
                         }
 
                         PrintAST(AST, 0);
-                        Parser_DestroyAST(AST);
+                        Parser_AST_Destroy(AST);
                         Lexer_Destroy(Tokens);
                         Lexer_Close(LexFile);
                 }
