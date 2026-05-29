@@ -16,4 +16,11 @@ Program Main @L'libc'
                         Std.Io.Write(Except(v[i]), Exit(1))
                 LibC.printf(C.str("Hello, World!"));
         End
+
+        Procdure OnExit(OriginalCode) Integer
+                Integer OriginalCode
+        Begin
+                // e.g. cleanup/different exit code
+                Return OriginalCode
+        End
 End
