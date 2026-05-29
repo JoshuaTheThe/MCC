@@ -161,6 +161,9 @@ typedef enum
         LEXER_TOKEN_P_TRUE,
         LEXER_TOKEN_P_FALSE,
         LEXER_TOKEN_P_AS,
+        LEXER_TOKEN_P_CONST,
+        LEXER_TOKEN_P_AUTHOR,
+        LEXER_TOKEN_P_LICENSE,
         LEXER_TOKEN_P_KEYWORD_END,
 } LEXCLAS;
 

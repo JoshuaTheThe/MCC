@@ -83,6 +83,9 @@ const char P_Keywords[][16] =
 	"True",
 	"False",
 	"As",
+	"Constant",
+	"Author",
+	"License",
 };
 
 char Lexer_Get(LEXFIL *fil)
