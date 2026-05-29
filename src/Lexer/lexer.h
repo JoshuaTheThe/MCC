@@ -45,6 +45,7 @@ typedef enum
         LEXER_TOKEN_GREATER,            // >
         LEXER_TOKEN_LESS,               // <
         LEXER_TOKEN_SET,                // =
+        LEXER_TOKEN_P_ATTR,             // @
         LEXER_TOKEN_PREPROC,            // # nop
 
         LEXER_TOKEN_DOUBLE_SYMBOL_START,
@@ -128,6 +129,38 @@ typedef enum
         LEXER_TOKEN_C_KEYWORD_END,
 
         LEXER_TOKEN_P_KEYWORD_START,
+        LEXER_TOKEN_P_MODULE=LEXER_TOKEN_P_KEYWORD_START,
+        LEXER_TOKEN_P_PROGRAM,
+        LEXER_TOKEN_P_REQUIRE,
+        LEXER_TOKEN_P_EMBED,
+        LEXER_TOKEN_P_PROCEDURE,
+        LEXER_TOKEN_P_BEGIN,
+        LEXER_TOKEN_P_END,
+        LEXER_TOKEN_P_INTEGER,
+        LEXER_TOKEN_P_REAL,
+        LEXER_TOKEN_P_CHAR,
+        LEXER_TOKEN_P_OPTIONAL,
+        LEXER_TOKEN_P_NOTHING,
+        LEXER_TOKEN_P_ADDRESS,
+        LEXER_TOKEN_P_BYTE,
+        LEXER_TOKEN_P_SOME,
+        LEXER_TOKEN_P_RETURN,
+        LEXER_TOKEN_P_TYPE,
+        LEXER_TOKEN_P_RECORD,
+        LEXER_TOKEN_P_IF,
+        LEXER_TOKEN_P_ELSE,
+        LEXER_TOKEN_P_WHILE,
+        LEXER_TOKEN_P_FOR,
+        LEXER_TOKEN_P_TO,
+        LEXER_TOKEN_P_IN,
+        LEXER_TOKEN_P_STEP,
+        LEXER_TOKEN_P_VERSION,
+        LEXER_TOKEN_P_EXTERNAL,
+        LEXER_TOKEN_P_EXCEPT,
+        LEXER_TOKEN_P_BOOLEAN,
+        LEXER_TOKEN_P_TRUE,
+        LEXER_TOKEN_P_FALSE,
+        LEXER_TOKEN_P_AS,
         LEXER_TOKEN_P_KEYWORD_END,
 } LEXCLAS;
 

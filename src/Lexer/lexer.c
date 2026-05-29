@@ -51,7 +51,38 @@ const char C_Keywords[][16] =
 
 const char P_Keywords[][16] =
 {
+	"Module",
+	"Program",
+	"Require",
+        "Embed",
 	"Procedure",
+	"Begin",
+	"End",
+	"Integer",
+	"Real",
+	"Char",
+	"Optional",
+	"Nothing",
+	"Address",
+	"Byte",
+	"Some",
+	"Return",
+	"Type",
+	"Record",
+	"If",
+	"Else",
+	"While",
+	"For",
+	"To",
+	"In",
+	"Step",
+	"Version",
+	"External",
+	"Except",
+	"Boolean",
+	"True",
+	"False",
+	"As",
 };
 
 char Lexer_Get(LEXFIL *fil)
@@ -343,6 +374,7 @@ TOKEN Lexer_Operator(LEXFIL *fil, char First)
                 ['='] = LEXER_TOKEN_SET,
                 ['#'] = LEXER_TOKEN_PREPROC,
                 ['\\'] = LEXER_TOKEN_CNT,
+                ['@'] = LEXER_TOKEN_P_ATTR,
         };
 
         char Peek[4] = {First,0,0,0};
