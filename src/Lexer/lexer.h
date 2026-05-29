@@ -81,8 +81,8 @@ typedef enum
         LEXER_TOKEN_ROLLRIGHT,          // >>>
         LEXER_TOKEN_VARIADIC,           // ...
 
-        LEXER_TOKEN_KEYWORD_START,
-        LEXER_TOKEN_IF=LEXER_TOKEN_KEYWORD_START,
+        LEXER_TOKEN_C_KEYWORD_START,
+        LEXER_TOKEN_IF=LEXER_TOKEN_C_KEYWORD_START,
         LEXER_TOKEN_ELSE,
         LEXER_TOKEN_WHILE_FOR,
         LEXER_TOKEN_DO,
@@ -124,8 +124,18 @@ typedef enum
         LEXER_TOKEN_PRE_ELSEIF,       // tell compiler to do some things conditionally
         LEXER_TOKEN_PRE_ENDIF,
         LEXER_TOKEN_PRE_PRAGMA,       // tell compiler to do smth differently
-        LEXER_TOKEN_KEYWORD_END,
+        LEXER_TOKEN_FOR,
+        LEXER_TOKEN_C_KEYWORD_END,
+
+        LEXER_TOKEN_P_KEYWORD_START,
+        LEXER_TOKEN_P_KEYWORD_END,
 } LEXCLAS;
+
+typedef enum
+{
+        LEXER_LANG_C,
+        LEXER_LANG_P,
+} LANGUAGE;
 
 typedef struct
 {
@@ -136,6 +146,7 @@ typedef struct
         size_t *LineOffsets;
         size_t  LineCapacity;
         size_t  LineCount;
+        LANGUAGE Lang;
 } LEXFIL;
 
 typedef struct _TOKEN
@@ -158,5 +169,13 @@ LEXFIL Lexer_Open(const char *path);
 void   Lexer_Close(LEXFIL fil);
 void Lexer_IndexLines(LEXFIL *fil);
 void Lexer_RemoveToken(TOKEN *Token);
+char Lexer_Get(LEXFIL *fil);
+void Lexer_Unget(LEXFIL *fil, char Character);
+char Lexer_Peek(LEXFIL *fil, long off);
+TOKEN *UnConsume(TOKEN **const Token);
+TOKEN *Expect(TOKEN **const Token, LEXCLAS Class, LEXFIL *File);
+TOKEN *Consume(TOKEN **const Token);
+TOKEN Lexer_Number(LEXFIL *fil, char First);
+TOKEN Lexer_Character(LEXFIL *fil, char First);
 
 #endif

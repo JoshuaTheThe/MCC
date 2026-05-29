@@ -1,10 +1,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <lexer/lexer.h>
-#include <preproc/preproc.h>
-#include <parser/parser.h>
-#include <project/project.h>
+#include <Lexer/lexer.h>
+#include <PreProc/preproc.h>
+#include <Parser/parser.h>
+#include <Project/project.h>
 
 void PrintAST(PARSAST *Node, int Depth)
 {

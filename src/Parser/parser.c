@@ -1,41 +1,9 @@
 
-#include <Parser/Parser.h>
+#include <Parser/parser.h>
 #include <stdarg.h>
+#include <error.h>
 
 static PARSAST *Parser_ConstructExpressions(TOKEN **const Tokens, LEXFIL *File);
-
-void Parser_Error(LEXFIL *File, TOKEN ReferenceToken, const char *const fmt, ...)
-{
-        char ErrorBuffer[1024 * 2] = {0};
-        char FormattedMessage[1024] = {0};
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf(FormattedMessage, sizeof(FormattedMessage), fmt, args);
-        va_end(args);
-        if (ReferenceToken.Class != LEXER_TOKEN_EOF)
-                snprintf(ErrorBuffer, sizeof(ErrorBuffer), "%s:%ld:%ld: error: %s\n",
-                         File->Identifier, ReferenceToken.Line, ReferenceToken.Column,
-                         FormattedMessage);
-        else
-                snprintf(ErrorBuffer, sizeof(ErrorBuffer), "error: %s\n", FormattedMessage);
-        printf("%s", ErrorBuffer);
-        if (ReferenceToken.Class != LEXER_TOKEN_EOF &&
-            ReferenceToken.Line < File->LineCount)
-        {
-                char Character = 0;
-                fseek(File->fp, File->LineOffsets[ReferenceToken.Line - 1], SEEK_SET);
-                while (Character != '\n' && Character != EOF)
-                {
-                        if (Character != 0)
-                                printf("%c", Character);
-                        Character = fgetc(File->fp);
-                }
-
-                printf("\n%*s^\n", ReferenceToken.Column - 1, "");
-        }
-
-        exit(1);
-}
 
 static void ASTAppend(PARSAST **const A, PARSAST *const B)
 {
@@ -46,40 +14,12 @@ static void ASTAppend(PARSAST **const A, PARSAST *const B)
         *A = B;
 }
 
-static TOKEN *Consume(TOKEN **const Token)
-{
-        if (!Token)
-                return NULL;
-        TOKEN *const Tok = *Token;
-        *Token = (*Token)->Next;
-        return Tok;
-}
-
-static TOKEN *Expect(TOKEN **const Token, LEXCLAS Class, LEXFIL *File)
-{
-        if (Consume(Token)->Class != Class)
-        {
-                Parser_Error(File, **Token, "Expected token of class %ld when provided %ld", Class, (*Token)->Class);
-        }
-
-        return *Token;
-}
-
-static TOKEN *UnConsume(TOKEN **const Token)
-{
-        if (!Token)
-                return NULL;
-        TOKEN *const Tok = *Token;
-        *Token = (*Token)->Prev;
-        return Tok;
-}
-
 static PARSAST *ASTCreateNode(ASTCLAS Class, LEXFIL *File)
 {
         PARSAST *AST = calloc(1, sizeof(*AST));
         if (!AST)
         {
-                Parser_Error(File, (TOKEN){0}, "Could not create AST node of class %ld", Class);
+                Error(File, (TOKEN){0}, "Could not create AST node of class %ld", Class);
         }
 
         AST->Class = Class;
@@ -536,7 +476,7 @@ static PARSAST *Parser_ConstructStatement(TOKEN **const Tokens, LEXFIL *File)
 PARSAST *Parser_ConstructAST(TOKEN *Tokens, LEXFIL *File)
 {
         if (!Tokens || !File)
-                Parser_Error(File, *Tokens, "Provided corrupted state %p:%p", Tokens, File);
+                Error(File, *Tokens, "Provided corrupted state %p:%p", Tokens, File);
         PARSAST *Nodes = NULL, *Root = NULL;
         while (Tokens->Next)
         {

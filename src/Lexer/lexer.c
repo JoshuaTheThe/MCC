@@ -1,7 +1,8 @@
 
-#include <lexer/lexer.h>
+#include <Lexer/lexer.h>
+#include <error.h>
 
-static const char Keywords[][16] =
+const char C_Keywords[][16] =
 {
 	"if",
 	"else",
@@ -48,6 +49,11 @@ static const char Keywords[][16] =
 	"for",
 };
 
+const char P_Keywords[][16] =
+{
+	"Procedure",
+};
+
 char Lexer_Get(LEXFIL *fil)
 {
         char Character   = fgetc(fil->fp);
@@ -74,22 +80,6 @@ char Lexer_Peek(LEXFIL *fil, long off)
         char Character  = fgetc(fil->fp);
         fseek(fil->fp, _off, SEEK_SET);
         return Character;
-}
-
-// free the entire token tree
-void Lexer_Destroy(TOKEN *Tokens)
-{
-        TOKEN *Last = NULL;
-        while (Tokens)
-        {
-                if (Last)
-                        free(Last);
-                Last   = Tokens;
-                Tokens = Tokens->Next;
-        }
-
-        if (Last)
-                free(Last);
 }
 
 TOKEN Lexer_Character(LEXFIL *fil, char First)
@@ -129,6 +119,102 @@ TOKEN Lexer_Number(LEXFIL *fil, char First)
         return Token;
 }
 
+// free the entire token tree
+void Lexer_Destroy(TOKEN *Tokens)
+{
+        TOKEN *Last = NULL;
+        while (Tokens)
+        {
+                if (Last)
+                        free(Last);
+                Last   = Tokens;
+                Tokens = Tokens->Next;
+        }
+
+        if (Last)
+                free(Last);
+}
+
+TOKEN *Lexer_FindTail(TOKEN *Tokens)
+{
+        static TOKEN *CachedTail = NULL;
+        static TOKEN *CachedBase = NULL;
+        if (CachedTail && CachedTail->Next == NULL && CachedBase == Tokens)
+                return CachedTail;
+        while (Tokens->Next)
+                Tokens = Tokens->Next;
+        CachedTail = Tokens;
+        CachedBase = Tokens;
+        return Tokens;
+}
+
+// create next token for a file
+TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil)
+{
+        TOKEN *NewToken = calloc(1, sizeof(*NewToken));
+        TOKEN  Contents = Lexer_Next(fil);
+        TOKEN *Tail     = NULL;
+        if (!NewToken)
+        {
+                printf("Could not create Token\n");
+                abort();
+        }
+        *NewToken = Contents;
+        if (*Tokens == NULL)
+        {
+                *Tokens = NewToken;
+                return NewToken;
+        }
+        Tail = Lexer_FindTail(*Tokens);
+        Tail->Next     = NewToken;
+        NewToken->Prev = Tail;
+        return NewToken;
+}
+
+// load the entire contents of a file then lex it.
+TOKEN *Lexer_LexFile(LEXFIL *fil)
+{
+        TOKEN *Tokens = NULL;
+        TOKEN *Last   = NULL;
+        while ((Last = Lexer_ConstructNext(&Tokens, fil))->Class != LEXER_TOKEN_EOF)
+                ;
+        Lexer_IndexLines(fil);
+        return Tokens;
+}
+
+// this routine is slow and bad and stinky but oh well we only do it once per file
+void Lexer_IndexLines(LEXFIL *fil)
+{
+        if (fil->LineOffsets)
+        {
+                printf("File already indexed\n");
+                abort();
+        }
+        
+        fseek(fil->fp, 0, SEEK_SET);
+        fil->LineOffsets = malloc(sizeof(long) * 1024);
+        fil->LineCapacity = 1024;
+        fil->LineCount = 1;
+        fil->LineOffsets[0] = 0;
+        int c;
+        long pos = 0;
+        while ((c = fgetc(fil->fp)) != EOF)
+        {
+                pos++;
+                if (c == '\n')
+                {
+                        if (fil->LineCount >= fil->LineCapacity)
+                        {
+                                fil->LineCapacity *= 2;
+                                fil->LineOffsets = realloc(fil->LineOffsets,
+                                                           sizeof(long) * fil->LineCapacity);
+                        }
+                        
+                        fil->LineOffsets[fil->LineCount++] = pos;
+                }
+        }
+}
+
 TOKEN Lexer_Identifier(LEXFIL *fil, char First)
 {
         TOKEN Token      = {0};
@@ -145,17 +231,19 @@ TOKEN Lexer_Identifier(LEXFIL *fil, char First)
         }
 
         Lexer_Unget(fil, Character);
-        for (size_t i = 0; i < sizeof(Keywords) / sizeof(Keywords[0]); ++i)
+
+        const size_t Length  = fil->Lang == LEXER_LANG_C ? sizeof(C_Keywords) / sizeof(C_Keywords[0]) : sizeof(P_Keywords) / sizeof(P_Keywords[0]);
+        const size_t LengthP = fil->Lang == LEXER_LANG_C ? sizeof(C_Keywords[0]) : sizeof(P_Keywords[0]);
+        const char (*Keywords)[16]= fil->Lang == LEXER_LANG_C ? C_Keywords : P_Keywords;
+        for (size_t i = 0; i < Length; ++i)
         {
-                if (!strncmp(Token.Identifier, Keywords[i], sizeof(Keywords[0])))
+                if (!strncmp(Token.Identifier, Keywords[i], LengthP))
                 {
-                        Token.Class = LEXER_TOKEN_KEYWORD_START;
+                        Token.Class = LEXER_TOKEN_C_KEYWORD_START + i;
                         break;
                 }
         }
 
-        if (Token.Class == LEXER_TOKEN_KEYWORD_END) // for placeholder
-                Token.Class = LEXER_TOKEN_WHILE_FOR;
         return Token;
 }
 
@@ -298,6 +386,72 @@ found:  Token.File = fil;
         return Token;
 }
 
+LEXFIL Lexer_Open(const char *Path)
+{
+        LEXFIL fil     = {0};
+        fil.fp         = fopen(Path, "r");
+        fil.Column     = 0;
+        fil.Line       = 1;
+        fil.LineOffset = 0;
+        strncpy(fil.Identifier, Path, IDENTIFIER_SIZE - 1); // ewww
+        if (!fil.fp)
+        {
+                printf("Could not open file %s\n", Path);
+                abort();
+        }
+
+        // even more eww
+        static const LANGUAGE _map[256] = {
+                ['p'] = LEXER_LANG_P,
+                ['c'] = LEXER_LANG_C,
+        };
+
+        fil.Lang = _map[(unsigned char)fil.Identifier[strnlen(fil.Identifier, IDENTIFIER_SIZE - 1) - 1]];
+        return fil;
+}
+
+void Lexer_Close(LEXFIL fil)
+{
+        free(fil.LineOffsets);
+        fclose(fil.fp);
+}
+
+void Lexer_RemoveToken(TOKEN *Token)
+{
+        if (Token->Prev)
+                Token->Prev->Next = Token->Next;
+        if (Token->Next)
+                Token->Next->Prev = Token->Prev;
+}
+
+TOKEN *Consume(TOKEN **const Token)
+{
+        if (!Token)
+                return NULL;
+        TOKEN *const Tok = *Token;
+        *Token = (*Token)->Next;
+        return Tok;
+}
+
+TOKEN *Expect(TOKEN **const Token, LEXCLAS Class, LEXFIL *File)
+{
+        if (Consume(Token)->Class != Class)
+        {
+                Error(File, **Token, "Expected token of class %ld when provided %ld", Class, (*Token)->Class);
+        }
+
+        return *Token;
+}
+
+TOKEN *UnConsume(TOKEN **const Token)
+{
+        if (!Token)
+                return NULL;
+        TOKEN *const Tok = *Token;
+        *Token = (*Token)->Prev;
+        return Tok;
+}
+
 // returns the next raw token
 TOKEN Lexer_Next(LEXFIL *fil)
 {
@@ -366,115 +520,4 @@ TOKEN Lexer_Next(LEXFIL *fil)
                 return Tok;
         }
         return (TOKEN){0};
-}
-
-TOKEN *Lexer_FindTail(TOKEN *Tokens)
-{
-        static TOKEN *CachedTail = NULL;
-        static TOKEN *CachedBase = NULL;
-        if (CachedTail && CachedTail->Next == NULL && CachedBase == Tokens)
-                return CachedTail;
-        while (Tokens->Next)
-                Tokens = Tokens->Next;
-        CachedTail = Tokens;
-        CachedBase = Tokens;
-        return Tokens;
-}
-
-// create next token for a file
-TOKEN *Lexer_ConstructNext(TOKEN **Tokens, LEXFIL *fil)
-{
-        TOKEN *NewToken = calloc(1, sizeof(*NewToken));
-        TOKEN  Contents = Lexer_Next(fil);
-        TOKEN *Tail     = NULL;
-        if (!NewToken)
-        {
-                printf("Could not create Token\n");
-                abort();
-        }
-        *NewToken = Contents;
-        if (*Tokens == NULL)
-        {
-                *Tokens = NewToken;
-                return NewToken;
-        }
-        Tail = Lexer_FindTail(*Tokens);
-        Tail->Next     = NewToken;
-        NewToken->Prev = Tail;
-        return NewToken;
-}
-
-// load the entire contents of a file then lex it.
-TOKEN *Lexer_LexFile(LEXFIL *fil)
-{
-        TOKEN *Tokens = NULL;
-        TOKEN *Last   = NULL;
-        while ((Last = Lexer_ConstructNext(&Tokens, fil))->Class != LEXER_TOKEN_EOF)
-                ;
-        Lexer_IndexLines(fil);
-        return Tokens;
-}
-
-// this routine is slow and bad and stinky but oh well we only do it once per file
-void Lexer_IndexLines(LEXFIL *fil)
-{
-        if (fil->LineOffsets)
-        {
-                printf("File already indexed\n");
-                abort();
-        }
-        
-        fseek(fil->fp, 0, SEEK_SET);
-        fil->LineOffsets = malloc(sizeof(long) * 1024);
-        fil->LineCapacity = 1024;
-        fil->LineCount = 1;
-        fil->LineOffsets[0] = 0;
-        int c;
-        long pos = 0;
-        while ((c = fgetc(fil->fp)) != EOF)
-        {
-                pos++;
-                if (c == '\n')
-                {
-                        if (fil->LineCount >= fil->LineCapacity)
-                        {
-                                fil->LineCapacity *= 2;
-                                fil->LineOffsets = realloc(fil->LineOffsets,
-                                                           sizeof(long) * fil->LineCapacity);
-                        }
-                        
-                        fil->LineOffsets[fil->LineCount++] = pos;
-                }
-        }
-}
-
-LEXFIL Lexer_Open(const char *Path)
-{
-        LEXFIL fil     = {0};
-        fil.fp         = fopen(Path, "r");
-        fil.Column     = 0;
-        fil.Line       = 1;
-        fil.LineOffset = 0;
-        strncpy(fil.Identifier, Path, IDENTIFIER_SIZE - 1); // ewww
-        if (!fil.fp)
-        {
-                printf("Could not open file %s\n", Path);
-                abort();
-        }
-
-        return fil;
-}
-
-void Lexer_Close(LEXFIL fil)
-{
-        free(fil.LineOffsets);
-        fclose(fil.fp);
-}
-
-void Lexer_RemoveToken(TOKEN *Token)
-{
-        if (Token->Prev)
-                Token->Prev->Next = Token->Next;
-        if (Token->Next)
-                Token->Next->Prev = Token->Prev;
 }
